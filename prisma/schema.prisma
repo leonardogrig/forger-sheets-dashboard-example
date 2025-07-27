@@ -1,0 +1,150 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  BANNED
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Simplified User model - references Stripe products directly
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+// Product analytics models for Google Sheets data
+model Product {
+  id            String   @id @map("product_id")
+  name          String   @map("product_name")
+  category      String
+  actualPrice   String   @map("actual_price")
+  rating        Float
+  aboutProduct  String   @map("about_product") @db.Text
+  productLink   String   @map("product_link") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  sales   Sale[]
+  reviews Review[]
+  
+  @@map("products")
+}
+
+model Sale {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  dateSold  DateTime @map("date_sold")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@map("sales")
+}
+
+model Reviewer {
+  id        String   @id @map("user_id")
+  name      String   @map("user_name")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  reviews Review[]
+  
+  @@map("reviewers")
+}
+
+model Review {
+  id         String   @id @map("review_id")
+  productId  String   @map("product_id")
+  reviewerId String   @map("reviewer_id")
+  title      String   @map("review_title")
+  content    String   @map("review_content") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reviewer Reviewer @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  
+  @@map("reviews")
+}
+
+// Sync tracking for Google Sheets integration
+model SyncLog {
+  id          String    @id @default(cuid())
+  status      String    // SUCCESS, ERROR, IN_PROGRESS
+  rowsUpdated Int       @default(0) @map("rows_updated")
+  errorMessage String?  @map("error_message") @db.Text
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  
+  @@map("sync_logs")
+}
