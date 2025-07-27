@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "npx prisma db push && next build",
-    "start": "next start",
+    "build": "npx prisma generate && next build",
+    "start": "npx prisma db push && next start",
     "lint": "next lint",
     "db:setup-admin": "tsx prisma/seed-admin.ts",
     "db:migrate": "prisma migrate dev",
